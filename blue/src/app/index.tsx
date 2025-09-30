@@ -1,27 +1,33 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import { BluetoothProvider } from '../contexts/BluetoothContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BottomMenu } from '../components/BottomMenu';
+import { DiscoverScreen } from '../screens/DiscoverScreen';
+import { SavedScreen } from '../screens/SavedScreen';
+import { EditScreen } from '../screens/EditScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
-const IndexPage = () => {
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Bem-vindo à Página !</Text>
-            <Text>Esta é uma página React Native padrão.</Text>
-        </View>
-    );
+const App = () => {
+    const [route, setRoute] = useState('discover');
+
+    const navigate = (to: string) => setRoute(to);
+
+        return (
+            <SafeAreaProvider>
+                <BluetoothProvider>
+                    <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1 }}>
+                            {route === 'discover' && <DiscoverScreen navigate={navigate} />}
+                            {route === 'saved' && <SavedScreen navigate={navigate} />}
+                            {route === 'edit' && <EditScreen navigate={navigate} />}
+                            {route === 'settings' && <SettingsScreen />}
+                        </View>
+                        <BottomMenu current={route} navigate={navigate} />
+                    </View>
+                </BluetoothProvider>
+            </SafeAreaProvider>
+        );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 16,
-    },
-});
-
-export default IndexPage;
+export default App;
