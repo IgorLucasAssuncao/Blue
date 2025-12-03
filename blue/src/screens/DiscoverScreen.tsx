@@ -1,7 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
-	ActivityIndicator,
-	Animated,
 	FlatList,
 	Platform,
 	StyleSheet,
@@ -12,130 +10,93 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import { useBluetooth } from '../contexts/BluetoothContext';
 
-// Replace uuid import with a simple implementation
-function generateUUID() {
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-		const r = Math.random() * 16 | 0;
-		const v = c === 'x' ? r : (r & 0x3 | 0x8);
-		return v.toString(16);
-	});
-}
-
 export const DiscoverScreen: React.FC<{ navigate: (to: string) => void }> = ({ navigate }) => {
-	const { startScanning, availableDevices, isScanning, addDevice } = useBluetooth();
-	const fadeAnim = React.useRef(new Animated.Value(0)).current;
+	const { loadMockDevices, availableDevices, syncDevice, loading } = useBluetooth();
 
-	// Trigger animation when devices are found
-	React.useEffect(() => {
-		if (availableDevices.length > 0) {
-			Animated.timing(fadeAnim, {
-				toValue: 1,
-				duration: 300,
-				useNativeDriver: true,
-			}).start();
+	useEffect(() => {
+		// Load mock devices when screen opens
+		loadMockDevices();
+	}, []);
+
+	const handleSync = async (device: any) => {
+		try {
+			await syncDevice(device);
+		} catch (error) {
+			console.error('Sync failed:', error);
 		}
-	}, [availableDevices]);
-
-	const scan = async () => {
-		await startScanning();
-	};
-
-	const handleSaveDevice = async (item: any) => {
-		await addDevice({
-			id: generateUUID(), // Using our custom UUID generator
-			name: item.name,
-			address: item.address,
-			rssi: item.rssi
-		});
-		navigate('saved');
 	};
 
 	return (
 		<View style={styles.container}>
 			{/* Header */}
 			<View style={styles.header}>
-				<Text style={styles.title}>Descobrir Dispositivos</Text>
+				<Text style={styles.title}>Dispositivos Disponíveis</Text>
 				<Text style={styles.subtitle}>
-					Encontre e conecte-se a dispositivos Bluetooth próximos
+					Sincronize dispositivos com seu cofre pessoal
 				</Text>
 			</View>
 
-			{/* Scan Button */}
+			{/* Refresh Button */}
 			<TouchableOpacity
-				style={[styles.scanButton, isScanning && styles.scanButtonActive]}
-				onPress={scan}
-				disabled={isScanning}
+				style={styles.refreshButton}
+				onPress={loadMockDevices}
 				activeOpacity={0.8}
 			>
-				{isScanning ? (
-					<View style={styles.scanButtonContent}>
-						<ActivityIndicator color="#FFFFFF" size="small" />
-						<Text style={styles.scanButtonText}>Escaneando...</Text>
-					</View>
-				) : (
-					<View style={styles.scanButtonContent}>
-						<Icon name="bluetooth" size={20} color="#FFFFFF" />
-						<Text style={styles.scanButtonText}>Escanear Dispositivos</Text>
-					</View>
-				)}
+				<Icon name="refresh-cw" size={20} color="#FFFFFF" />
+				<Text style={styles.refreshButtonText}>Atualizar Lista</Text>
 			</TouchableOpacity>
 
 			{/* Results */}
-			{availableDevices.length === 0 && !isScanning ? (
+			{availableDevices.length === 0 ? (
 				<View style={styles.emptyState}>
 					<Icon name="bluetooth" size={48} color="#C7C7CC" />
 					<Text style={styles.emptyStateText}>
 						Nenhum dispositivo encontrado
 					</Text>
 					<Text style={styles.emptyStateSubtext}>
-						Toque em "Escanear Dispositivos" para procurar
+						Toque em "Atualizar Lista" para procurar
 					</Text>
 				</View>
 			) : (
-				<Animated.View style={[styles.listContainer, { opacity: fadeAnim }]}>
-					<FlatList
-						data={availableDevices}
-						keyExtractor={(item, index) => item.id || `device-${index}`}
-						contentContainerStyle={styles.listContent}
-						ItemSeparatorComponent={() => <View style={styles.separator} />}
-						renderItem={({ item, index }) => (
-							<Animated.View
-								style={[
-									styles.deviceCard,
-									{
-										opacity: fadeAnim,
-										transform: [{
-											translateY: fadeAnim.interpolate({
-												inputRange: [0, 1],
-												outputRange: [20, 0],
-											}),
-										}],
-									},
-								]}
-							>
-								<View style={styles.deviceIcon}>
-									<Icon name="smartphone" size={24} color="#007AFF" />
-								</View>
+				<FlatList
+					data={availableDevices}
+					keyExtractor={(item) => item.id}
+					contentContainerStyle={styles.listContent}
+					ItemSeparatorComponent={() => <View style={styles.separator} />}
+					renderItem={({ item }) => (
+						<View style={styles.deviceCard}>
+							<View style={styles.deviceIcon}>
+								<Icon name="smartphone" size={24} color="#007AFF" />
+							</View>
 
-								<View style={styles.deviceInfo}>
-									<Text style={styles.deviceName}>{item.name || 'Dispositivo sem nome'}</Text>
-									<Text style={styles.deviceAddress}>{item.address}</Text>
-									{item.rssi && (
-										<Text style={styles.deviceRssi}>Sinal: {item.rssi} dBm</Text>
-									)}
-								</View>
+							<View style={styles.deviceInfo}>
+								<Text style={styles.deviceName}>{item.name}</Text>
+								<Text style={styles.deviceAddress}>{item.address}</Text>
+								{item.isSynced && (
+									<View style={styles.syncedBadge}>
+										<Icon name="check-circle" size={12} color="#34C759" />
+										<Text style={styles.syncedBadgeText}>Sincronizado</Text>
+									</View>
+								)}
+							</View>
 
+							{item.isSynced ? (
+								<View style={styles.syncedIcon}>
+									<Icon name="check-circle" size={24} color="#34C759" />
+								</View>
+							) : (
 								<TouchableOpacity
-									style={styles.saveButton}
-									onPress={() => handleSaveDevice(item)}
+									style={styles.syncButton}
+									onPress={() => handleSync(item)}
 									activeOpacity={0.7}
+									disabled={loading}
 								>
-									<Icon name="plus" size={20} color="#FFFFFF" />
+									<Icon name="cloud-upload" size={20} color="#FFFFFF" />
 								</TouchableOpacity>
-							</Animated.View>
-						)}
-					/>
-				</Animated.View>
+							)}
+						</View>
+					)}
+				/>
 			)}
 		</View>
 	);
@@ -176,7 +137,7 @@ const styles = StyleSheet.create({
 		color: '#8E8E93',
 		lineHeight: 20,
 	},
-	scanButton: {
+	refreshButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -197,14 +158,7 @@ const styles = StyleSheet.create({
 			},
 		}),
 	},
-	scanButtonActive: {
-		backgroundColor: '#0051D5',
-	},
-	scanButtonContent: {
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
-	scanButtonText: {
+	refreshButtonText: {
 		color: '#FFFFFF',
 		fontSize: 17,
 		fontWeight: '600',
@@ -228,9 +182,6 @@ const styles = StyleSheet.create({
 		color: '#8E8E93',
 		textAlign: 'center',
 		lineHeight: 20,
-	},
-	listContainer: {
-		flex: 1,
 	},
 	listContent: {
 		paddingVertical: 8,
@@ -270,21 +221,27 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: '#8E8E93',
 	},
-	deviceRssi: {
-		fontSize: 12,
-		color: '#8E8E93',
-		marginTop: 2,
+	syncedBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginTop: 4,
 	},
-	saveButton: {
+	syncedBadgeText: {
+		fontSize: 12,
+		color: '#34C759',
+		fontWeight: '600',
+		marginLeft: 4,
+	},
+	syncButton: {
 		width: 36,
 		height: 36,
 		borderRadius: 18,
-		backgroundColor: '#34C759',
+		backgroundColor: '#007AFF',
 		alignItems: 'center',
 		justifyContent: 'center',
 		...Platform.select({
 			ios: {
-				shadowColor: '#34C759',
+				shadowColor: '#007AFF',
 				shadowOffset: { width: 0, height: 2 },
 				shadowOpacity: 0.2,
 				shadowRadius: 4,
@@ -293,5 +250,11 @@ const styles = StyleSheet.create({
 				elevation: 2,
 			},
 		}),
+	},
+	syncedIcon: {
+		width: 36,
+		height: 36,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 });

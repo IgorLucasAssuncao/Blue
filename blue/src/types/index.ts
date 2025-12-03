@@ -8,4 +8,7 @@ export type BluetoothDevice = {
 	customName?: string;
 	autoConnect?: boolean;
 	rssi?: number;
+	// Firebase fields
+	isSynced?: boolean;
+	userId?: string;
 };
